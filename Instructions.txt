@@ -235,3 +235,16 @@ wandb agent your-team/stoney-rl/<sweep-ID>
 
 
 **End of instructions.txt**
+
+# Progress Tracker (as of latest update)
+#
+# [x] Project repository created and remote set: https://github.com/HarleyCoops/Stoney-RL.git
+# [x] Comprehensive README written and pushed to GitHub
+# [x] Synthetic Stoney dataset uploaded to Hugging Face: https://huggingface.co/datasets/HarleyCooper/synthetic-stoney-data
+# [x] Dataset structure inspected and validated
+# [x] Weights & Biases integration tested and working
+# [x] All project files (scripts, .gitignore, etc.) committed and pushed
+# [ ] LoRA fine-tuning with new dataset (next step)
+# [ ] Reward model and GRPO RL loop (pending)
+# [ ] Evaluation and sweep setup (pending)
+# [ ] Data card for Hugging Face dataset (pending)
