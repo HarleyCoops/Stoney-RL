@@ -1,5 +1,0 @@
-{"text": "```"}
-{"text": "conda activate stoney-rl"}
-{"text": "1. **Quantise**: `bitsandbytes` or `gguf` the merged checkpoint for 8-bit laptop inference.  "}
-{"text": "2. **Push artifacts**: `wandb.save(\"stoney_rl_grpo/*\")` to attach final weights.  "}
-{"text": ""}
