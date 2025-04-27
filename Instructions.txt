@@ -1,0 +1,237 @@
+This is the init of a new method of mechanistic interperability focused on low-resource First Nations languages. 
+
+I want to watch how these models will reason through ground truth data and which attention mechanisms are used. How do these linguistic reasoning tasks differ from reasoning about math? 
+
+I have already trained and open sourced a small model on math reasoning just so the user can see how those compare. 
+
+Here are your verbose instructions: 
+
+Below is **instructions.txt**—a verbose, self-contained playbook another LLM (or engineer-in-a-rush) can follow to reproduce your Stoney-Nakoda LoRA ➜ reward-model ➜ GRPO pipeline and publish every run to Weights & Biases.
+
+
+
+## Summary of what this file does
+These instructions (1) install the exact tool-chain, (2) load **HarleyCooper/StoneyNakoda45k** from the Hugging Face Hub, (3) run a **LoRA supervised-fine-tune** on a reasoning-centric base model (DeepSeek-R1-Zero-7 B or Phi-3-Mini-3.8 B), (4) wire the Hugging Face Trainer and TRL's GRPOTrainer to **Weights & Biases (W&B)** for live logging, (5) provide stubs for a multi-signal reward model, and (6) show quick automatic evaluation plus optional W&B sweeps. Follow line-by-line or copy-paste whole blocks; every external function is cited to the official docs or GitHub code.
+
+
+
+## 0  Prerequisites & one-time set-up
+```
+# 0.1  System
+#   • Linux, CUDA 11.8, driver ≥ 525
+#   • 24 GB VRAM (A10, 3090) → fits R1-Zero-7B fp16
+#   • or 12 GB VRAM → use Phi-3-Mini-3.8B q4
+
+# 0.2  Weights & Biases (once per machine)
+pip install wandb
+wandb login              # pastes your API key OR set the vars below
+# Example: Successfully tested with entity 'christian-cooper-us' and project 'stoney-rl'.
+# You can verify your run at: https://wandb.ai/christian-cooper-us/stoney-rl
+
+# Non-interactive alternative (e.g. in SLURM job script)
+export WANDB_API_KEY="xxxxxxxxxxxxxxxxxxxxxxxx"
+export WANDB_ENTITY="christian-cooper-us"          # set to your W&B username or team
+export WANDB_PROJECT="stoney-rl"
+
+# 0.3  New conda env
+conda create -n stoney-rl python=3.11 -y
+conda activate stoney-rl
+```
+
+
+
+## 1  Install libraries
+```
+pip install torch --index-url https://download.pytorch.org/whl/cu118
+pip install transformers datasets accelerate      # HF stack
+pip install peft==0.10.0                          # LoRA API  ([PEFT: State-of-the-art Parameter-Efficient Fine-Tuning. - GitHub](https://github.com/huggingface/peft?utm_source=chatgpt.com))
+pip install trl==0.7.10                           # PPO / GRPO trainers  ([GRPO as part of HF TRL? · Issue #2103 · huggingface/trl - GitHub](https://github.com/huggingface/trl/issues/2103?utm_source=chatgpt.com))
+pip install sacrebleu comet-kiwi mauve-text       # chrF / COMET / MAUVE  ([Unbabel/COMET: A Neural Framework for MT Evaluation - GitHub](https://github.com/Unbabel/COMET?utm_source=chatgpt.com), [krishnap25/mauve - GitHub](https://github.com/krishnap25/mauve?utm_source=chatgpt.com), [mjpost/sacrebleu: Reference BLEU implementation that ... - GitHub](https://github.com/mjpost/sacrebleu?utm_source=chatgpt.com))
+```
+
+
+
+## 2  Load & flatten the dataset
+```python
+from datasets import load_dataset
+
+ds = load_dataset("HarleyCooper/StoneyNakoda45k", split="train")  #  ([Load a dataset from the Hub - Hugging Face](https://huggingface.co/docs/datasets/load_hub?utm_source=chatgpt.com))
+
+def flatten(triple):
+    prompt = f"<system>{triple[0]['content']}\n<user>{triple[1]['content']}\n<assistant>"
+    return {"prompt": prompt, "target": triple[2]["content"]}
+
+train_ds = ds.map(flatten, remove_columns=ds.column_names)
+```
+
+---
+
+## 3  Choose a base model
+```python
+base_model = "deepseek-ai/DeepSeek-R1-Zero-7B"        # strong chain-of-thought starter  ([deepseek-ai/DeepSeek-R1-Zero - Hugging Face](https://huggingface.co/deepseek-ai/DeepSeek-R1-Zero?utm_source=chatgpt.com), [The race to reproduce DeepSeek's market-breaking AI has begun](https://www.businessinsider.com/deepseek-r1-open-source-replicate-ai-west-china-hugging-face-2025-1?utm_source=chatgpt.com))
+# —or—
+# base_model = "microsoft/Phi-3-mini-4k-instruct"     # lighter, 3.8 B params  ([microsoft/Phi-3-mini-4k-instruct - Hugging Face](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct?utm_source=chatgpt.com))
+```
+
+
+
+## 4  LoRA supervised fine-tune (SFT)
+```python
+import wandb; wandb_run = wandb.init(project="stoney-rl",
+                                     name="lora_sft_r1zero",
+                                     config={"base_model": base_model, "lora_rank": 16})
+
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
+from peft import LoraConfig, get_peft_model
+from trl import SFTTrainer
+
+tok = AutoTokenizer.from_pretrained(base_model, use_fast=True)
+tok.pad_token = tok.eos_token
+
+model = AutoModelForCausalLM.from_pretrained(base_model, torch_dtype="auto", device_map="auto")
+
+lora_cfg = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05,
+                      target_modules=["q_proj","v_proj","k_proj","o_proj"],
+                      task_type="CAUSAL_LM")
+model = get_peft_model(model, lora_cfg)
+
+sft_args = TrainingArguments(
+    output_dir="stoney_lora_ckpt",
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,
+    num_train_epochs=1,
+    learning_rate=2e-4,
+    fp16=True,
+    logging_steps=25,
+    save_strategy="epoch",
+    report_to="wandb",                   # HF ⇒ W&B bridge  ([How to turn WanDB off in trainer? - Beginners - Hugging Face Forums](https://discuss.huggingface.co/t/how-to-turn-wandb-off-in-trainer/6237?utm_source=chatgpt.com))
+    run_name=wandb_run.name
+)
+
+trainer = SFTTrainer(model=model, args=sft_args,
+                     train_dataset=train_ds,
+                     dataset_text_field="prompt",
+                     tokenizer=tok,
+                     max_seq_length=512)
+trainer.train()
+model.save_pretrained("stoney_lora_merged")
+tok.save_pretrained("stoney_lora_merged")
+```
+
+
+
+## 5  Reward-model stub (optional, but ready)
+```python
+# siamese encoder scoring (prompt + trace + answer) → scalar in [-1,1]
+from transformers import AutoModel, AutoTokenizer
+rm_base = "microsoft/mpnet-base"
+tkn_r = AutoTokenizer.from_pretrained(rm_base); enc_r = AutoModel.from_pretrained(rm_base)
+
+def reward_fn(samples):        # list[str] where str = packed sequence
+    # encode, pool CLS, feed MLP → score
+    # TODO: fine-tune on ranked traces
+    return [0.0 for _ in samples]
+```
+
+
+
+## 6  GRPO reinforcement loop
+```python
+wandb_run = wandb.init(project="stoney-rl",
+                       name="grpo_rl_phase",
+                       config={"algo":"GRPO","kl_penalty":0.1})
+
+from trl import GRPOConfig, GRPOTrainer
+from transformers import AutoModelForCausalLM
+
+policy = AutoModelForCausalLM.from_pretrained("stoney_lora_merged",
+                                              torch_dtype="auto", device_map="auto")
+
+grpo_cfg = GRPOConfig(
+    batch_size=64,
+    group_size=16,
+    learning_rate=2e-5,
+    kl_penalty=0.1,
+    max_length=256,
+    report_to="wandb",              # TRL → W&B logging  ([GRPO as part of HF TRL? · Issue #2103 · huggingface/trl - GitHub](https://github.com/huggingface/trl/issues/2103?utm_source=chatgpt.com))
+    run_name=wandb_run.name
+)
+
+grpo_trainer = GRPOTrainer(
+    config=grpo_cfg,
+    model=policy,
+    tokenizer=tok,
+    dataset=train_ds,               # prompts reused
+    reward_fn=reward_fn             # plug-in when trained
+)
+grpo_trainer.train(num_episodes=256)
+grpo_trainer.save_pretrained("stoney_rl_grpo")
+```
+
+
+
+## 7  Quick automatic evaluation
+```python
+from sacrebleu import corpus_chrf
+from comet import download_model, load_from_checkpoint
+import mauve, torch
+
+refs  = [ex["target"] for ex in train_ds.select(range(400))]
+prompts = [ex["prompt"] for ex in train_ds.select(range(400))]
+cands = []
+for p in prompts:
+    out = policy.generate(**tok(p, return_tensors="pt").to("cuda"),
+                          max_new_tokens=64).sequences[0]
+    cands.append(tok.decode(out, skip_special_tokens=True))
+
+print("chrF++", corpus_chrf(cands,[refs]).score)        #  ([mjpost/sacrebleu: Reference BLEU implementation that ... - GitHub](https://github.com/mjpost/sacrebleu?utm_source=chatgpt.com))
+ckpt = download_model("Unbabel/wmt22-cometkiwi-da")     #  ([Unbabel/COMET: A Neural Framework for MT Evaluation - GitHub](https://github.com/Unbabel/COMET?utm_source=chatgpt.com))
+print("COMET", load_from_checkpoint(ckpt).predict(cands, refs, batch_size=16))
+print("MAUVE", mauve.compute_mauve(p_text=cands, q_text=refs).mauve)  #  ([krishnap25/mauve - GitHub](https://github.com/krishnap25/mauve?utm_source=chatgpt.com))
+```
+
+All three metrics auto-log to the active W&B run via `wandb.log({...})`.
+
+
+
+## 8  Sweep template (hyper-search)
+Create **sweep.yaml**:
+```yaml
+method: grid
+parameters:
+  learning_rate: {values: [1e-4, 2e-4, 3e-4]}
+  lora_rank:     {values: [8, 16, 32]}
+program: sft_train.py
+```
+Then:
+```
+wandb sweep sweep.yaml      #  ([What is the official way to run a wandb sweep with hugging face (HF ...](https://community.wandb.ai/t/what-is-the-official-way-to-run-a-wandb-sweep-with-hugging-face-hf-transformers/4668?utm_source=chatgpt.com))
+wandb agent your-team/stoney-rl/<sweep-ID>
+```
+
+
+
+## 9  House-keeping & deployment
+1. **Quantise**: `bitsandbytes` or `gguf` the merged checkpoint for 8-bit laptop inference.  
+2. **Push artifacts**: `wandb.save("stoney_rl_grpo/*")` to attach final weights.  
+3. **Rollback logic**: tag any run with `model_version: stable` in W&B UI for easy restore.
+
+
+
+### References
+* Hugging Face "report_to ='wandb'" flag in Trainer docs  ([How to turn WanDB off in trainer? - Beginners - Hugging Face Forums](https://discuss.huggingface.co/t/how-to-turn-wandb-off-in-trainer/6237?utm_source=chatgpt.com))  
+* PEFT-LoRA GitHub repo  ([PEFT: State-of-the-art Parameter-Efficient Fine-Tuning. - GitHub](https://github.com/huggingface/peft?utm_source=chatgpt.com))  
+* W&B `wandb.init()` reference  ([init | Weights & Biases Documentation - Wandb](https://docs.wandb.ai/ref/python/init/?utm_source=chatgpt.com))  
+* GRPO integration issue & example in TRL  ([GRPO as part of HF TRL? · Issue #2103 · huggingface/trl - GitHub](https://github.com/huggingface/trl/issues/2103?utm_source=chatgpt.com))  
+* `datasets` load-hub tutorial  ([Load a dataset from the Hub - Hugging Face](https://huggingface.co/docs/datasets/load_hub?utm_source=chatgpt.com))  
+* DeepSeek-R1-Zero model card  ([deepseek-ai/DeepSeek-R1-Zero - Hugging Face](https://huggingface.co/deepseek-ai/DeepSeek-R1-Zero?utm_source=chatgpt.com))  
+* Business-Insider coverage of R1-Zero performance  ([The race to reproduce DeepSeek's market-breaking AI has begun](https://www.businessinsider.com/deepseek-r1-open-source-replicate-ai-west-china-hugging-face-2025-1?utm_source=chatgpt.com))  
+* Phi-3-Mini model card  ([microsoft/Phi-3-mini-4k-instruct - Hugging Face](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct?utm_source=chatgpt.com))  
+* COMET-Kiwi evaluation repo  ([Unbabel/COMET: A Neural Framework for MT Evaluation - GitHub](https://github.com/Unbabel/COMET?utm_source=chatgpt.com))  
+* MAUVE metric repo  ([krishnap25/mauve - GitHub](https://github.com/krishnap25/mauve?utm_source=chatgpt.com))  
+* sacreBLEU / chrF implementation  ([mjpost/sacrebleu: Reference BLEU implementation that ... - GitHub](https://github.com/mjpost/sacrebleu?utm_source=chatgpt.com))  
+* W&B sweep how-to forum example  ([What is the official way to run a wandb sweep with hugging face (HF ...](https://community.wandb.ai/t/what-is-the-official-way-to-run-a-wandb-sweep-with-hugging-face-hf-transformers/4668?utm_source=chatgpt.com))
+
+
+
+**End of instructions.txt**
