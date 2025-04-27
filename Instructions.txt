@@ -244,7 +244,7 @@ wandb agent your-team/stoney-rl/<sweep-ID>
 # [x] Dataset structure inspected and validated
 # [x] Weights & Biases integration tested and working
 # [x] All project files (scripts, .gitignore, etc.) committed and pushed
+# [x] Data card for Hugging Face dataset created (DATASET_README.md)
 # [ ] LoRA fine-tuning with new dataset (next step)
 # [ ] Reward model and GRPO RL loop (pending)
 # [ ] Evaluation and sweep setup (pending)
-# [ ] Data card for Hugging Face dataset (pending)
