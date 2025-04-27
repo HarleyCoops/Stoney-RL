@@ -79,6 +79,34 @@ When configuring your Hyperbolic Labs instance, ensure it meets these specificat
 - **Storage:** Minimum 100GB SSD for model weights and dataset
 - **RAM:** 32GB+ recommended
 
+### Accessing Hyperbolic Labs
+
+To access the Hyperbolic instance for this project:
+
+1. **Generate SSH Key** (if you don't already have one):
+   ```bash
+   ssh-keygen -t ed25519
+   ```
+
+2. **Add your public key to Hyperbolic**:
+   ```bash
+   # View your public key
+   cat ~/.ssh/id_ed25519.pub
+   ```
+   Copy the output and add it to your Hyperbolic dashboard under SSH keys.
+
+3. **SSH into your instance**:
+   ```bash
+   # Replace with your actual instance details
+   ssh ubuntu@instance-name.domain.hyperbolic.xyz -p port_number
+   
+   # Example
+   ssh ubuntu@condemned-papaya-hippopotamus.1.cricket.hyperbolic.xyz -p 31641
+   ```
+
+4. **Project Directory:**
+   Once connected, you'll be in the `/home/ubuntu` directory where you should clone the repo and keep all project files (Note: exceeding 20GB of ephemeral disk space outside this directory may cause pod reset).
+
 ### Setup Process
 
 1. **Initialize Hyperbolic Labs Instance:**
