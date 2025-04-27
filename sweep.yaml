@@ -1,0 +1,16 @@
+method: grid
+metric:
+  name: val_loss
+  goal: minimize
+parameters:
+  learning_rate:
+    values: [1e-4, 2e-4, 3e-4]
+  lora_rank:
+    values: [8, 16, 32]
+  per_device_train_batch_size:
+    values: [2, 4]
+  num_train_epochs:
+    value: 1
+  model:
+    value: "deepseek-ai/DeepSeek-R1-Zero-7B"
+program: train_lora.py 

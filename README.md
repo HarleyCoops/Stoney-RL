@@ -145,6 +145,88 @@ The following items are planned for future development:
 - **Human Preference Collection:** Set up a system for collecting human preferences to further align the model with native speaker expectations.
 - **Multi-Modal Extensions:** Explore connections between language, images, and audio in the Stoney Nakoda context.
 
+## TransformerLens Integration
+
+The project supports integration with [TransformerLens](https://transformerlensorg.github.io/TransformerLens/) for mechanistic interpretability analysis. This integration enables:
+
+- **Visualizing Attention Patterns**: See exactly how the model attends to different tokens in Stoney Nakoda text
+- **Analyzing Neuron Activations**: Identify specific neurons that activate for linguistic features
+- **Tracing Reasoning Paths**: Map out how information flows through the model during reasoning tasks
+- **Weights & Biases Logging**: All visualizations are automatically logged to W&B for experiment tracking
+
+For detailed implementation instructions, code examples, and visualization guides, see [README-TLens.md](README-TLens.md).
+
+## LoRA Pipeline
+
+The Stoney-RL project implements a comprehensive training pipeline that combines LoRA fine-tuning with GRPO reinforcement learning, all integrated with Weights & Biases for experiment tracking.
+
+### Training Scripts
+
+- **train_lora.py**: Parameter-efficient fine-tuning using LoRA adapters
+- **train_grpo.py**: Group Regularized Policy Optimization training
+- **evaluate_model.py**: Automatic evaluation using chrF++, COMET, and MAUVE metrics
+- **wandb_sample.py**: Test script for W&B integration
+- **sweep.yaml**: Configuration for hyperparameter optimization
+
+### Pipeline Workflow
+
+```mermaid
+graph TD
+    A[Setup W&B] -->|wandb_sample.py| B[Test Connection]
+    B --> C[LoRA Fine-Tuning]
+    C -->|train_lora.py| D[Fine-Tuned Model]
+    D --> E[GRPO RL Training]
+    E -->|train_grpo.py| F[GRPO-Optimized Model]
+    F --> G[Model Evaluation]
+    G -->|evaluate_model.py| H[Evaluation Metrics]
+    I[sweep.yaml] -.->|Hyperparameter Optimization| C
+```
+
+### Running the Pipeline on Hyperbolic Labs
+
+1. **Setup W&B Integration**:
+   ```bash
+   export WANDB_API_KEY="your_api_key"
+   export WANDB_ENTITY="your_username"
+   export WANDB_PROJECT="stoney-rl"
+   python wandb_sample.py
+   ```
+
+2. **LoRA Fine-Tuning**:
+   ```bash
+   # For single GPU
+   python train_lora.py --model deepseek-ai/DeepSeek-R1-Zero-7B --batch_size 4
+   
+   # For multi-GPU training
+   python train_lora.py --model deepseek-ai/DeepSeek-R1-Zero-7B --batch_size 4 --multi_gpu --num_gpus 4
+   ```
+
+3. **GRPO Training**:
+   ```bash
+   python train_grpo.py --lora_path stoney_lora_merged --batch_size 64 --group_size 16
+   ```
+
+4. **Model Evaluation**:
+   ```bash
+   python evaluate_model.py --model_path stoney_rl_grpo --num_samples 400
+   ```
+
+5. **Hyperparameter Optimization** (optional):
+   ```bash
+   wandb sweep sweep.yaml
+   wandb agent your-team/stoney-rl/<sweep-id>
+   ```
+
+All training progress, metrics, and artifacts will be logged to your Weights & Biases dashboard, enabling comprehensive experiment tracking and visualization.
+
+### Interoperability Testing
+
+For quick testing and experimentation with the model, you can use our interactive Colab notebook:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1IvsuboOn7vf7JmrCfo9yiO5AP5qK3M3R?usp=sharing)
+
+This notebook demonstrates how to load and use the trained models, and can be used to test interoperability across different environments.
+
 ## Citation
 If you use this project or dataset, please cite the Hugging Face dataset and this repository.
 
@@ -152,4 +234,4 @@ If you use this project or dataset, please cite the Hugging Face dataset and thi
 MIT License (see LICENSE file)
 
 ## Contact
-For questions or collaboration, open an issue or contact [HarleyCooper](https://huggingface.co/HarleyCooper). 
+For questions or collaboration, open an issue or contact [HarleyCooper](https://huggingface.co/HarleyCooper).
