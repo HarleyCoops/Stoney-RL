@@ -101,6 +101,75 @@ This method provides an isolated and reproducible environment for running the Lo
     *   Log metrics and progress to your specified Weights & Biases project (`stoney-rl`).
     *   Save the final LoRA adapter and tokenizer to the `stoney_lora_phi3_local_merged/` directory locally (due to the volume mount).
 
+## Running on a Remote (Hyperbolic) Server via SSH
+
+This section details the full process for setting up Stoney-RL on a remote Linux server, including SSH access, copying the repo, and installing dependencies (including flash-attn).
+
+### 1. SSH Login & SSH Key Setup
+1. **Generate an SSH key (if needed) on your local machine:**
+   ```sh
+   ssh-keygen -t ed25519 -C "your_email@example.com"
+   # Press enter to accept defaults
+   cat ~/.ssh/id_ed25519.pub
+   ```
+2. **Add your public key to the remote server:**
+   - Copy the output of the previous command.
+   - SSH into the remote (using password):
+     ```sh
+     ssh username@remote.server.address
+     ```
+   - On the remote, add the key to `~/.ssh/authorized_keys`:
+     ```sh
+     echo "<paste-your-public-key-here>" >> ~/.ssh/authorized_keys
+     chmod 600 ~/.ssh/authorized_keys
+     ```
+
+### 2. Copy the Repo from Local WSL to Remote
+- From your local (WSL) terminal:
+  ```sh
+  scp -r ~/Stoney-RL username@remote.server.address:~/Stoney-RL
+  ```
+  *(Replace `username` and `remote.server.address` with your actual remote credentials.)*
+
+### 3. Environment Setup on the Remote
+1. **Install system dependencies:**
+   ```sh
+   sudo apt update
+   sudo apt install python3-venv python3-pip git
+   ```
+2. **Create and activate a Python virtual environment:**
+   ```sh
+   cd ~/Stoney-RL
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install --upgrade pip
+   ```
+3. **Install requirements (except flash-attn):**
+   - Edit `requirements.txt` and temporarily comment out the `flash-attn` line.
+   - Then run:
+     ```sh
+     pip install -r requirements.txt
+     ```
+4. **Install flash-attn separately:**
+   - Un-comment the `flash-attn` line in `requirements.txt` (if desired), or install directly:
+     ```sh
+     pip install flash-attn
+     ```
+   - If you encounter errors, see [flash-attn installation instructions](https://github.com/Dao-AILab/flash-attention#installation) for CUDA and system requirements.
+
+### 4. (Optional) Add Scripts to PATH
+If you see warnings about scripts not on PATH (e.g., `torchrun`), add the following to your `~/.bashrc`:
+```sh
+export PATH="$PATH:$HOME/.local/bin"
+```
+Then run:
+```sh
+source ~/.bashrc
+```
+
+### 5. Run the Project
+Proceed with dataset inspection, training, etc. as described above.
+
 ## Distributed Training with Hyperbolic Labs
 
 This project is configured for distributed training on Hyperbolic Labs cloud infrastructure. This approach offers:
