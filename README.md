@@ -305,3 +305,7 @@ MIT License (see LICENSE file)
 
 ## Contact
 For questions or collaboration, open an issue or contact [HarleyCooper](https://huggingface.co/HarleyCooper).
+
+
+docker build -t stoney-rl-local .
+docker run --rm --gpus all -v .:/app stoney-rl-local
