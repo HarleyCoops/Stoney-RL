@@ -95,7 +95,7 @@ This method provides an isolated and reproducible environment for running the Lo
 3.  **Monitor Training**:
     The container will execute the `train_lora_local.py` script. This script is pre-configured to:
     *   Use the `microsoft/Phi-3-mini-4k-instruct` model.
-    *   Load the `HarleyCooper/StoneyNakoda45k` dataset.
+    *   Load the `HarleyCooper/synthetic_stoney_data` dataset.
     *   Load W&B credentials from the `.env` file.
     *   Perform LoRA fine-tuning.
     *   Log metrics and progress to your specified Weights & Biases project (`stoney-rl`).

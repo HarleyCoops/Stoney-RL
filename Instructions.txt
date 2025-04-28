@@ -11,7 +11,7 @@ Below is **instructions.txt**—a verbose, self-contained playbook another LLM (
 
 
 ## Summary of what this file does
-These instructions (1) install the exact tool-chain, (2) load **HarleyCooper/StoneyNakoda45k** from the Hugging Face Hub, (3) run a **LoRA supervised-fine-tune** on a reasoning-centric base model (DeepSeek-R1-Zero-7 B or Phi-3-Mini-3.8 B), (4) wire the Hugging Face Trainer and TRL's GRPOTrainer to **Weights & Biases (W&B)** for live logging, (5) provide stubs for a multi-signal reward model, and (6) show quick automatic evaluation plus optional W&B sweeps. Follow line-by-line or copy-paste whole blocks; every external function is cited to the official docs or GitHub code.
+These instructions (1) install the exact tool-chain, (2) load **HarleyCooper/synthetic_stoney_data** from the Hugging Face Hub, (3) run a **LoRA supervised-fine-tune** on a reasoning-centric base model (DeepSeek-R1-Zero-7 B or Phi-3-Mini-3.8 B), (4) wire the Hugging Face Trainer and TRL's GRPOTrainer to **Weights & Biases (W&B)** for live logging, (5) provide stubs for a multi-signal reward model, and (6) show quick automatic evaluation plus optional W&B sweeps. Follow line-by-line or copy-paste whole blocks; every external function is cited to the official docs or GitHub code.
 
 
 
@@ -55,7 +55,7 @@ pip install sacrebleu comet-kiwi mauve-text       # chrF / COMET / MAUVE  ([Unba
 ```python
 from datasets import load_dataset
 
-ds = load_dataset("HarleyCooper/StoneyNakoda45k", split="train")  #  ([Load a dataset from the Hub - Hugging Face](https://huggingface.co/docs/datasets/load_hub?utm_source=chatgpt.com))
+ds = load_dataset("HarleyCooper/synthetic_stoney_data", split="train")  #  ([Load a dataset from the Hub - Hugging Face](https://huggingface.co/docs/datasets/load_hub?utm_source=chatgpt.com))
 
 def flatten(triple):
     prompt = f"<system>{triple[0]['content']}\n<user>{triple[1]['content']}\n<assistant>"

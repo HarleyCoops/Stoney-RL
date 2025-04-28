@@ -28,7 +28,7 @@ wandb_run = wandb.init(
 
 # Load dataset
 print("Loading dataset...")
-ds = load_dataset("HarleyCooper/StoneyNakoda45k", split="train")
+ds = load_dataset("HarleyCooper/synthetic_stoney_data", split="train")
 
 def flatten(triple):
     prompt = f"<system>{triple[0]['content']}\n<user>{triple[1]['content']}\n<assistant>"
