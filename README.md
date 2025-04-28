@@ -59,6 +59,48 @@ Stoney-RL is a research pipeline for exploring mechanistic interpretability in l
 5. **Track experiments:**
    All runs are logged to Weights & Biases under the `stoney-rl` project.
 
+## Running Locally with Docker
+
+This method provides an isolated and reproducible environment for running the LoRA fine-tuning pipeline on a local machine with a suitable NVIDIA GPU.
+
+### Prerequisites
+
+-   **Docker Desktop**: Ensure Docker Desktop is installed and running on your system.
+-   **NVIDIA GPU & Drivers**: A CUDA-enabled NVIDIA GPU (e.g., RTX 3090, 4080, 4090 with sufficient VRAM, ~16GB recommended for Phi-3-mini) and compatible NVIDIA drivers (CUDA 11.8+ recommended) must be installed on the host machine.
+-   **W&B Credentials**: Create a `.env` file in the root of the `Stoney-RL` project directory containing your Weights & Biases credentials:
+    ```env
+    WANDB_API_KEY="your_api_key_here"
+    WANDB_ENTITY="your_username_or_team_here"
+    WANDB_PROJECT="stoney-rl"
+    ```
+
+### Steps
+
+1.  **Build the Docker Image**:
+    Navigate to the `Stoney-RL` directory in your terminal. The provided `Dockerfile` uses the `pytorch/pytorch:2.2.1-cuda11.8-cudnn8-runtime` base image and installs the necessary Python dependencies, including pinned versions identified during troubleshooting.
+    ```bash
+    docker build -t stoney-rl-local .
+    ```
+    This command builds the image and tags it as `stoney-rl-local`.
+
+2.  **Run the Training Container**:
+    Execute the following command to start the container, run the training script, and mount the local directory:
+    ```bash
+    docker run --rm --gpus all -v .:/app stoney-rl-local
+    ```
+    *   `--rm`: Removes the container after it finishes.
+    *   `--gpus all`: Makes your host GPU(s) available inside the container.
+    *   `-v .:/app`: Mounts the current directory (`Stoney-RL`) to `/app` inside the container. This allows the container to access `train_lora_local.py`, `.env`, and save outputs (like checkpoints in `stoney_lora_phi3_local_ckpt/`) back to your local filesystem.
+
+3.  **Monitor Training**:
+    The container will execute the `train_lora_local.py` script. This script is pre-configured to:
+    *   Use the `microsoft/Phi-3-mini-4k-instruct` model.
+    *   Load the `HarleyCooper/StoneyNakoda45k` dataset.
+    *   Load W&B credentials from the `.env` file.
+    *   Perform LoRA fine-tuning.
+    *   Log metrics and progress to your specified Weights & Biases project (`stoney-rl`).
+    *   Save the final LoRA adapter and tokenizer to the `stoney_lora_phi3_local_merged/` directory locally (due to the volume mount).
+
 ## Distributed Training with Hyperbolic Labs
 
 This project is configured for distributed training on Hyperbolic Labs cloud infrastructure. This approach offers:
